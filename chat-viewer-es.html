@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualizador de Chats de IA</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.3.0/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.5/purify.min.js"></script>
+    <style>
+        :root {
+            --user-color: #d2f4d3;
+            --ai-color: #e9f1ff;
+            --border-color: #e0e0e0;
+            --header-bg: #f8f9fa;
+            --primary-color: #2b6cb0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #333;
+        }
+
+        .input-container {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background-color: var(--header-bg);
+        }
+
+        .tabs {
+            display: flex;
+            margin-bottom: 15px;
+        }
+
+        .tab {
+            padding: 8px 16px;
+            cursor: pointer;
+            border: 1px solid var(--border-color);
+            background-color: #f5f5f5;
+        }
+
+        .tab:first-child {
+            border-radius: 4px 0 0 4px;
+        }
+
+        .tab:last-child {
+            border-radius: 0 4px 4px 0;
+        }
+
+        .tab.active {
+            background-color: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        textarea {
+            width: 100%;
+            height: 150px;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            resize: vertical;
+            font-family: monospace;
+        }
+
+        #file-upload {
+            margin-bottom: 10px;
+        }
+
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+
+        button:hover {
+            background-color: #1a4971;
+        }
+
+        .button-group {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 15px;
+        }
+
+        .conversation-selector {
+            margin-top: 20px;
+            display: none;
+        }
+
+        select {
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+            margin-right: 10px;
+        }
+
+        .chat-container {
+            margin-top: 30px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .chat-header {
+            background-color: var(--header-bg);
+            padding: 15px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .chat-title {
+            font-weight: bold;
+            font-size: 18px;
+            margin: 0;
+        }
+
+        .chat-actions {
+            display: flex;
+        }
+
+        .chat-actions button {
+            padding: 6px 12px;
+            font-size: 14px;
+        }
+
+        .chat-messages {
+            padding: 15px;
+        }
+
+        .message {
+            margin-bottom: 20px;
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        .user-message {
+            background-color: var(--user-color);
+        }
+
+        .ai-message {
+            background-color: var(--ai-color);
+        }
+
+        .message-header {
+            font-weight: bold;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+        }
+
+        .user-icon, .ai-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 8px;
+            font-size: 14px;
+        }
+
+        .user-icon {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        .ai-icon {
+            background-color: #2196F3;
+            color: white;
+        }
+
+        .message-content {
+            white-space: pre-wrap;
+        }
+
+        .message-content p {
+            margin-top: 0;
+        }
+
+        .message-content p:last-child {
+            margin-bottom: 0;
+        }
+
+        .message-content pre {
+            background-color: rgba(0, 0, 0, 0.05);
+            padding: 12px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+
+        .message-content code {
+            background-color: rgba(0, 0, 0, 0.05);
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+
+        @media print {
+            .input-container, .chat-actions, button {
+                display: none !important;
+            }
+
+            .chat-container {
+                border: none;
+            }
+
+            .chat-header {
+                border-bottom: 1px solid #000;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Visualizador de Chats de IA</h1>
+
+    <div class="input-container">
+        <div class="tabs">
+            <div class="tab active" data-tab="json">Pegar JSON</div>
+            <div class="tab" data-tab="file">Subir archivo</div>
+        </div>
+        
+        <div class="tab-content active" id="json-tab">
+            <textarea id="json-input" placeholder="Pega aquí el contenido JSON de tu chat..."></textarea>
+        </div>
+        
+        <div class="tab-content" id="file-tab">
+            <input type="file" id="file-upload" accept=".json">
+        </div>
+
+        <div class="button-group">
+            <button id="parse-button">Visualizar Chat</button>
+            <button id="clear-button">Limpiar Todo</button>
+        </div>
+
+        <div class="conversation-selector">
+            <label for="conversation-select">Seleccionar conversación: </label>
+            <select id="conversation-select"></select>
+        </div>
+    </div>
+
+    <div class="chat-container" id="chat-container" style="display: none;">
+        <div class="chat-header">
+            <h2 class="chat-title" id="chat-title">Conversación</h2>
+            <div class="chat-actions">
+                <button id="print-button">Imprimir / PDF</button>
+            </div>
+        </div>
+        <div class="chat-messages" id="chat-messages"></div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Configuración de marked para el rendering de markdown
+            marked.setOptions({
+                breaks: true,
+                gfm: true
+            });
+
+            // Variables globales
+            let conversations = [];
+            let currentConversation = null;
+
+            // Elementos DOM
+            const tabs = document.querySelectorAll('.tab');
+            const tabContents = document.querySelectorAll('.tab-content');
+            const parseButton = document.getElementById('parse-button');
+            const clearButton = document.getElementById('clear-button');
+            const printButton = document.getElementById('print-button');
+            const jsonInput = document.getElementById('json-input');
+            const fileUpload = document.getElementById('file-upload');
+            const conversationSelector = document.querySelector('.conversation-selector');
+            const conversationSelect = document.getElementById('conversation-select');
+            const chatContainer = document.getElementById('chat-container');
+            const chatTitle = document.getElementById('chat-title');
+            const chatMessages = document.getElementById('chat-messages');
+
+            // Cambio de tabs
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    tabs.forEach(t => t.classList.remove('active'));
+                    tabContents.forEach(tc => tc.classList.remove('active'));
+                    
+                    tab.classList.add('active');
+                    document.getElementById(`${tab.dataset.tab}-tab`).classList.add('active');
+                });
+            });
+
+            // Parsear el JSON
+            parseButton.addEventListener('click', () => {
+                let jsonData;
+                
+                if (document.querySelector('.tab.active').dataset.tab === 'json') {
+                    try {
+                        jsonData = JSON.parse(jsonInput.value);
+                        processConversations(jsonData);
+                    } catch (error) {
+                        alert('Error al procesar el JSON: ' + error.message);
+                    }
+                } else {
+                    // No hacer nada si no hay archivo seleccionado
+                    if (!fileUpload.files.length) {
+                        alert('Por favor, selecciona un archivo JSON');
+                        return;
+                    }
+                }
+            });
+
+            // Limpiar todo
+            clearButton.addEventListener('click', () => {
+                jsonInput.value = '';
+                fileUpload.value = '';
+                chatContainer.style.display = 'none';
+                conversationSelector.style.display = 'none';
+                conversations = [];
+                currentConversation = null;
+            });
+
+            // Imprimir / PDF
+            printButton.addEventListener('click', () => {
+                window.print();
+            });
+
+            // Manejar subida de archivo
+            fileUpload.addEventListener('change', handleFileUpload);
+
+            // Cambiar la conversación seleccionada
+            conversationSelect.addEventListener('change', function() {
+                const index = parseInt(this.value);
+                currentConversation = conversations[index];
+                displayConversation(currentConversation);
+            });
+
+            // Función para manejar la subida de archivo
+            function handleFileUpload(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const jsonData = JSON.parse(e.target.result);
+                        processConversations(jsonData);
+                    } catch (error) {
+                        alert('Error al procesar el archivo JSON: ' + error.message);
+                    }
+                };
+                reader.readAsText(file);
+            }
+
+            // Procesar las conversaciones del JSON
+            function processConversations(data) {
+                conversations = Array.isArray(data) ? data : [data];
+                
+                if (conversations.length === 0) {
+                    alert('No se encontraron conversaciones en el JSON');
+                    return;
+                }
+
+                // Mostrar selector si hay más de una conversación
+                if (conversations.length > 1) {
+                    conversationSelect.innerHTML = '';
+                    conversations.forEach((conv, index) => {
+                        const option = document.createElement('option');
+                        option.value = index;
+                        option.textContent = conv.title || `Conversación ${index + 1}`;
+                        conversationSelect.appendChild(option);
+                    });
+                    conversationSelector.style.display = 'block';
+                } else {
+                    conversationSelector.style.display = 'none';
+                }
+
+                // Mostrar la primera conversación
+                currentConversation = conversations[0];
+                displayConversation(currentConversation);
+            }
+
+            // Mostrar una conversación
+            function displayConversation(conversation) {
+                chatTitle.textContent = conversation.title || 'Conversación';
+                chatMessages.innerHTML = '';
+
+                // Obtener mensajes ordenados por parent-child
+                const messages = getOrderedMessages(conversation);
+
+                // Crear elementos para cada mensaje
+                messages.forEach(message => {
+                    if (!message || !message.author) return;
+
+                    const role = message.author.role;
+                    if (role !== 'user' && role !== 'assistant') return;
+
+                    const messageDiv = document.createElement('div');
+                    messageDiv.className = `message ${role === 'user' ? 'user-message' : 'ai-message'}`;
+
+                    const headerDiv = document.createElement('div');
+                    headerDiv.className = 'message-header';
+
+                    const iconSpan = document.createElement('span');
+                    iconSpan.className = role === 'user' ? 'user-icon' : 'ai-icon';
+                    iconSpan.textContent = role === 'user' ? 'U' : 'A';
+
+                    const nameSpan = document.createElement('span');
+                    nameSpan.textContent = role === 'user' ? 'Usuario' : 'Asistente';
+
+                    headerDiv.appendChild(iconSpan);
+                    headerDiv.appendChild(nameSpan);
+
+                    const contentDiv = document.createElement('div');
+                    contentDiv.className = 'message-content';
+
+                    // Convertir markdown y limpiar HTML
+                    if (message.content && message.content.parts) {
+                        const contentText = message.content.parts.join('\n');
+                        const renderedMarkdown = marked.parse(contentText);
+                        contentDiv.innerHTML = DOMPurify.sanitize(renderedMarkdown);
+                    }
+
+                    messageDiv.appendChild(headerDiv);
+                    messageDiv.appendChild(contentDiv);
+                    chatMessages.appendChild(messageDiv);
+                });
+
+                chatContainer.style.display = 'block';
+            }
+
+            // Obtener mensajes ordenados por estructura de árbol
+            function getOrderedMessages(conversation) {
+                const orderedMessages = [];
+                const mapping = conversation.mapping;
+                
+                if (!mapping) return orderedMessages;
+
+                // Encontrar el nodo raíz
+                let rootNodeId = null;
+                for (const id in mapping) {
+                    if (mapping[id].parent === null) {
+                        rootNodeId = id;
+                        break;
+                    }
+                }
+
+                if (!rootNodeId) return orderedMessages;
+
+                // Función para recorrer el árbol
+                function traverseTree(nodeId) {
+                    const node = mapping[nodeId];
+                    if (!node) return;
+                    
+                    if (node.message) {
+                        orderedMessages.push(node.message);
+                    }
+                    
+                    if (node.children && node.children.length > 0) {
+                        node.children.forEach(childId => {
+                            traverseTree(childId);
+                        });
+                    }
+                }
+
+                // Iniciar el recorrido desde la raíz
+                traverseTree(rootNodeId);
+                
+                return orderedMessages;
+            }
+        });
+    </script>
+</body>
+</html>
