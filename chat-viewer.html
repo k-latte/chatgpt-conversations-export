@@ -1,431 +1,493 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Visor de Chats de ChatGPT</title>
+    <title>ChatGPT chat export processor</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.3.0/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.5/purify.min.js"></script>
     <style>
         :root {
-            --primary-color: #10a37f;
-            --user-bg: #f7f7f8;
-            --assistant-bg: #ffffff;
-            --text-color: #343541;
-            --border-color: #e5e5e5;
+            --user-color: #d2f4d3;
+            --ai-color: #e9f1ff;
+            --border-color: #e0e0e0;
+            --header-bg: #f8f9fa;
+            --primary-color: #2b6cb0;
         }
-        
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             line-height: 1.6;
-            color: var(--text-color);
+            color: #333;
             max-width: 800px;
             margin: 0 auto;
             padding: 20px;
         }
-        
+
         h1 {
-            color: var(--primary-color);
             text-align: center;
             margin-bottom: 30px;
+            color: #333;
         }
-        
-        .input-section {
+
+        .input-container {
             margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background-color: var(--header-bg);
+        }
+
+        .tabs {
             display: flex;
-            flex-direction: column;
-            gap: 15px;
+            margin-bottom: 15px;
         }
-        
-        .input-options {
-            display: flex;
-            gap: 20px;
-            flex-wrap: wrap;
+
+        .tab {
+            padding: 8px 16px;
+            cursor: pointer;
+            border: 1px solid var(--border-color);
+            background-color: #f5f5f5;
         }
-        
-        .file-input-container {
-            flex: 1;
-            min-width: 300px;
+
+        .tab:first-child {
+            border-radius: 4px 0 0 4px;
         }
-        
-        .textarea-container {
-            flex: 1;
-            min-width: 300px;
+
+        .tab:last-child {
+            border-radius: 0 4px 4px 0;
         }
-        
+
+        .tab.active {
+            background-color: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
         textarea {
             width: 100%;
             height: 150px;
             padding: 10px;
             border: 1px solid var(--border-color);
-            border-radius: 5px;
+            border-radius: 4px;
             resize: vertical;
+            font-family: monospace;
         }
-        
+
+        #file-upload {
+            margin-bottom: 10px;
+        }
+
         button {
             background-color: var(--primary-color);
             color: white;
             border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
+            padding: 10px 15px;
+            border-radius: 4px;
             cursor: pointer;
-            font-weight: bold;
-            transition: background-color 0.3s;
+            font-size: 16px;
+            margin-right: 10px;
         }
-        
+
         button:hover {
-            background-color: #0d8c6c;
+            background-color: #1a4971;
         }
-        
-        .conversation-container {
+
+        .button-group {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 15px;
+        }
+
+        .conversation-selector {
+            margin-top: 20px;
+            display: none;
+        }
+
+        select {
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+            margin-right: 10px;
+        }
+
+        .chat-container {
             margin-top: 30px;
             border: 1px solid var(--border-color);
             border-radius: 8px;
             overflow: hidden;
         }
-        
-        .conversation-header {
-            background-color: var(--primary-color);
-            color: white;
+
+        .chat-header {
+            background-color: var(--header-bg);
             padding: 15px;
-            font-weight: bold;
+            border-bottom: 1px solid var(--border-color);
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
-        
-        .conversation-title {
+
+        .chat-title {
+            font-weight: bold;
             font-size: 18px;
+            margin: 0;
         }
-        
-        .print-button {
-            background-color: white;
-            color: var(--primary-color);
-            padding: 5px 15px;
-            border-radius: 5px;
+
+        .chat-actions {
+            display: flex;
+        }
+
+        .chat-actions button {
+            padding: 6px 12px;
             font-size: 14px;
         }
-        
-        .message-container {
-            padding: 20px;
+
+        .chat-messages {
+            padding: 15px;
         }
-        
+
         .message {
             margin-bottom: 20px;
             padding: 15px;
             border-radius: 8px;
         }
-        
+
         .user-message {
-            background-color: var(--user-bg);
-            border-left: 4px solid #10a37f;
+            background-color: var(--user-color);
         }
-        
-        .assistant-message {
-            background-color: var(--assistant-bg);
-            border-left: 4px solid #8e8ea0;
+
+        .ai-message {
+            background-color: var(--ai-color);
         }
-        
+
         .message-header {
             font-weight: bold;
             margin-bottom: 10px;
             display: flex;
             align-items: center;
-            gap: 8px;
         }
-        
+
+        .user-icon, .ai-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 8px;
+            font-size: 14px;
+        }
+
         .user-icon {
-            color: var(--primary-color);
+            background-color: #4CAF50;
+            color: white;
         }
-        
-        .assistant-icon {
-            color: #8e8ea0;
+
+        .ai-icon {
+            background-color: #2196F3;
+            color: white;
         }
-        
+
         .message-content {
             white-space: pre-wrap;
         }
-        
-        code {
-            background-color: #f1f1f1;
-            padding: 2px 5px;
-            border-radius: 3px;
-            font-family: 'Courier New', Courier, monospace;
+
+        .message-content p {
+            margin-top: 0;
         }
-        
-        pre {
-            background-color: #f1f1f1;
-            padding: 15px;
-            border-radius: 5px;
+
+        .message-content p:last-child {
+            margin-bottom: 0;
+        }
+
+        .message-content pre {
+            background-color: rgba(0, 0, 0, 0.05);
+            padding: 12px;
+            border-radius: 4px;
             overflow-x: auto;
-            font-family: 'Courier New', Courier, monospace;
         }
-        
-        .error-message {
-            color: #e53935;
-            background-color: #ffebee;
-            padding: 10px;
-            border-radius: 5px;
-            margin-top: 10px;
-            display: none;
+
+        .message-content code {
+            background-color: rgba(0, 0, 0, 0.05);
+            padding: 2px 4px;
+            border-radius: 3px;
         }
-        
-        .no-print {
-            margin-bottom: 20px;
-        }
-        
+
         @media print {
-            .no-print {
-                display: none;
+            .input-container, .chat-actions, button {
+                display: none !important;
             }
-            
-            body {
-                padding: 0;
-                margin: 0;
-            }
-            
-            .conversation-container {
+
+            .chat-container {
                 border: none;
             }
-            
-            .conversation-header {
-                color: black;
-                background-color: white;
-                border-bottom: 1px solid #ddd;
-            }
-            
-            .print-button {
-                display: none;
+
+            .chat-header {
+                border-bottom: 1px solid #000;
             }
         }
     </style>
 </head>
 <body>
-    <div class="no-print">
-        <h1>Visor de Chats de ChatGPT</h1>
+    <h1>ChatGPT Chats Exports Processor</h1>
+
+    <div class="input-container">
+        <div class="tabs">
+            <div class="tab active" data-tab="json">Paste JSON</div>
+            <div class="tab" data-tab="file">Upload </div>
+        </div>
         
-        <div class="input-section">
-            <div class="input-options">
-                <div class="file-input-container">
-                    <h3>Cargar archivo JSON</h3>
-                    <input type="file" id="jsonFile" accept=".json">
-                </div>
-                
-                <div class="textarea-container">
-                    <h3>Pegar código JSON</h3>
-                    <textarea id="jsonInput" placeholder="Pega aquí el código JSON exportado..."></textarea>
-                </div>
-            </div>
-            
-            <button id="processButton">Procesar Chat</button>
-            <div id="errorMessage" class="error-message"></div>
+        <div class="tab-content active" id="json-tab">
+            <textarea id="json-input" placeholder="Paste here the JSON export of your chats..."></textarea>
+        </div>
+        
+        <div class="tab-content" id="file-tab">
+            <input type="file" id="file-upload" accept=".json">
+        </div>
+
+        <div class="button-group">
+            <button id="parse-button">Visualize Chat</button>
+            <button id="clear-button">Clear All</button>
+        </div>
+
+        <div class="conversation-selector">
+            <label for="conversation-select">Select conversation: </label>
+            <select id="conversation-select"></select>
         </div>
     </div>
-    
-    <div id="conversationsContainer"></div>
-    
+
+    <div class="chat-container" id="chat-container" style="display: none;">
+        <div class="chat-header">
+            <h2 class="chat-title" id="chat-title">Conversation</h2>
+            <div class="chat-actions">
+                <button id="print-button">Print / PDF</button>
+            </div>
+        </div>
+        <div class="chat-messages" id="chat-messages"></div>
+    </div>
+
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const jsonFileInput = document.getElementById('jsonFile');
-            const jsonTextarea = document.getElementById('jsonInput');
-            const processButton = document.getElementById('processButton');
-            const errorMessage = document.getElementById('errorMessage');
-            const conversationsContainer = document.getElementById('conversationsContainer');
-            
-            // Procesar el archivo o texto JSON cuando se haga clic en el botón
-            processButton.addEventListener('click', function() {
+            // markdown rendering config:
+            marked.setOptions({
+                breaks: true,
+                gfm: true
+            });
+
+            // Global variables
+            let conversations = [];
+            let currentConversation = null;
+
+            // DOM elements:
+            const tabs = document.querySelectorAll('.tab');
+            const tabContents = document.querySelectorAll('.tab-content');
+            const parseButton = document.getElementById('parse-button');
+            const clearButton = document.getElementById('clear-button');
+            const printButton = document.getElementById('print-button');
+            const jsonInput = document.getElementById('json-input');
+            const fileUpload = document.getElementById('file-upload');
+            const conversationSelector = document.querySelector('.conversation-selector');
+            const conversationSelect = document.getElementById('conversation-select');
+            const chatContainer = document.getElementById('chat-container');
+            const chatTitle = document.getElementById('chat-title');
+            const chatMessages = document.getElementById('chat-messages');
+
+            // Tabs:
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    tabs.forEach(t => t.classList.remove('active'));
+                    tabContents.forEach(tc => tc.classList.remove('active'));
+                    
+                    tab.classList.add('active');
+                    document.getElementById(`${tab.dataset.tab}-tab`).classList.add('active');
+                });
+            });
+
+            // Parse JSON data:
+            parseButton.addEventListener('click', () => {
                 let jsonData;
                 
-                try {
-                    // Intentar obtener datos del archivo o del textarea
-                    if (jsonFileInput.files.length > 0) {
-                        const fileReader = new FileReader();
-                        fileReader.onload = function(event) {
-                            try {
-                                jsonData = JSON.parse(event.target.result);
-                                displayConversations(jsonData);
-                                errorMessage.style.display = 'none';
-                            } catch (e) {
-                                errorMessage.textContent = 'Error al procesar el archivo JSON: ' + e.message;
-                                errorMessage.style.display = 'block';
-                            }
-                        };
-                        fileReader.readAsText(jsonFileInput.files[0]);
-                        return;
-                    } else if (jsonTextarea.value.trim() !== '') {
-                        jsonData = JSON.parse(jsonTextarea.value);
-                    } else {
-                        throw new Error('Por favor, carga un archivo o pega código JSON');
+                if (document.querySelector('.tab.active').dataset.tab === 'json') {
+                    try {
+                        jsonData = JSON.parse(jsonInput.value);
+                        processConversations(jsonData);
+                    } catch (error) {
+                        alert('Error processing JSON: ' + error.message);
                     }
-                    
-                    // Mostrar las conversaciones
-                    displayConversations(jsonData);
-                    errorMessage.style.display = 'none';
-                } catch (e) {
-                    errorMessage.textContent = 'Error al procesar el JSON: ' + e.message;
-                    errorMessage.style.display = 'block';
+                } else {
+                    // Do nothing if there is no file selected:
+                    if (!fileUpload.files.length) {
+                        alert('Please select JSON file');
+                        return;
+                    }
                 }
             });
-            
-            // Función para mostrar las conversaciones
-            function displayConversations(jsonData) {
-                conversationsContainer.innerHTML = '';
+
+            // Clear everything:
+            clearButton.addEventListener('click', () => {
+                jsonInput.value = '';
+                fileUpload.value = '';
+                chatContainer.style.display = 'none';
+                conversationSelector.style.display = 'none';
+                conversations = [];
+                currentConversation = null;
+            });
+
+            // Print / PDF
+            printButton.addEventListener('click', () => {
+                window.print();
+            });
+
+            // File upload:
+            fileUpload.addEventListener('change', handleFileUpload);
+
+            // Change selected conversation:
+            conversationSelect.addEventListener('change', function() {
+                const index = parseInt(this.value);
+                currentConversation = conversations[index];
+                displayConversation(currentConversation);
+            });
+
+            // Función para manejar la subida de archivo
+            function handleFileUpload(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const jsonData = JSON.parse(e.target.result);
+                        processConversations(jsonData);
+                    } catch (error) {
+                        alert('Error processing JSON: ' + error.message);
+                    }
+                };
+                reader.readAsText(file);
+            }
+
+            // Process conversations in JSON data:
+            function processConversations(data) {
+                conversations = Array.isArray(data) ? data : [data];
                 
-                // Asegurarse de que jsonData es un array
-                if (!Array.isArray(jsonData)) {
-                    jsonData = [jsonData];
+                if (conversations.length === 0) {
+                    alert('No JSON conversations were found');
+                    return;
                 }
-                
-                jsonData.forEach(conversation => {
-                    const conversationDiv = document.createElement('div');
-                    conversationDiv.className = 'conversation-container';
-                    
-                    // Crear encabezado de la conversación
+
+                // Show selector if there are more than one conversations in the JSON data:
+                if (conversations.length > 1) {
+                    conversationSelect.innerHTML = '';
+                    conversations.forEach((conv, index) => {
+                        const option = document.createElement('option');
+                        option.value = index;
+                        option.textContent = conv.title || `Conversation ${index + 1}`;
+                        conversationSelect.appendChild(option);
+                    });
+                    conversationSelector.style.display = 'block';
+                } else {
+                    conversationSelector.style.display = 'none';
+                }
+
+                // Show the first conversation
+                currentConversation = conversations[0];
+                displayConversation(currentConversation);
+            }
+
+            // Display one conversation
+            function displayConversation(conversation) {
+                chatTitle.textContent = conversation.title || 'Conversación';
+                chatMessages.innerHTML = '';
+
+                // Obtener mensajes ordenados por parent-child
+                const messages = getOrderedMessages(conversation);
+
+                // Create elements for each message
+                messages.forEach(message => {
+                    if (!message || !message.author) return;
+
+                    const role = message.author.role;
+                    if (role !== 'user' && role !== 'assistant') return;
+
+                    const messageDiv = document.createElement('div');
+                    messageDiv.className = `message ${role === 'user' ? 'user-message' : 'ai-message'}`;
+
                     const headerDiv = document.createElement('div');
-                    headerDiv.className = 'conversation-header';
-                    
-                    const titleSpan = document.createElement('span');
-                    titleSpan.className = 'conversation-title';
-                    titleSpan.textContent = conversation.title || 'Conversación sin título';
-                    headerDiv.appendChild(titleSpan);
-                    
-                    const printButton = document.createElement('button');
-                    printButton.className = 'print-button';
-                    printButton.textContent = 'Imprimir';
-                    printButton.addEventListener('click', () => {
-                        window.print();
-                    });
-                    headerDiv.appendChild(printButton);
-                    
-                    conversationDiv.appendChild(headerDiv);
-                    
-                    // Contenedor de mensajes
-                    const messagesDiv = document.createElement('div');
-                    messagesDiv.className = 'message-container';
-                    
-                    // Obtener todos los nodos en orden
-                    const orderedNodes = getOrderedNodes(conversation);
-                    
-                    // Mostrar los mensajes
-                    orderedNodes.forEach(node => {
-                        if (node && node.message) {
-                            const messageDiv = document.createElement('div');
-                            messageDiv.className = 'message';
-                            
-                            const role = node.message.author.role;
-                            if (role === 'user') {
-                                messageDiv.classList.add('user-message');
-                            } else if (role === 'assistant') {
-                                messageDiv.classList.add('assistant-message');
-                            }
-                            
-                            // Encabezado del mensaje
-                            const headerDiv = document.createElement('div');
-                            headerDiv.className = 'message-header';
-                            
-                            // Icono
-                            const iconSpan = document.createElement('span');
-                            if (role === 'user') {
-                                iconSpan.className = 'user-icon';
-                                iconSpan.innerHTML = '👤';
-                            } else if (role === 'assistant') {
-                                iconSpan.className = 'assistant-icon';
-                                iconSpan.innerHTML = '🤖';
-                            }
-                            headerDiv.appendChild(iconSpan);
-                            
-                            // Nombre del autor
-                            const authorSpan = document.createElement('span');
-                            if (role === 'user') {
-                                authorSpan.textContent = 'Usuario';
-                            } else if (role === 'assistant') {
-                                authorSpan.textContent = 'ChatGPT';
-                            } else {
-                                authorSpan.textContent = role;
-                            }
-                            headerDiv.appendChild(authorSpan);
-                            
-                            messageDiv.appendChild(headerDiv);
-                            
-                            // Contenido del mensaje
-                            if (node.message.content && node.message.content.parts) {
-                                const contentDiv = document.createElement('div');
-                                contentDiv.className = 'message-content';
-                                
-                                // Procesar el contenido para formatear código
-                                let messageText = node.message.content.parts.join('\n');
-                                
-                                // Detectar y formatear bloques de código
-                                messageText = messageText.replace(/```([\s\S]*?)```/g, function(match, code) {
-                                    return '<pre>' + code + '</pre>';
-                                });
-                                
-                                // Detectar y formatear código en línea
-                                messageText = messageText.replace(/`([^`]+)`/g, function(match, code) {
-                                    return '<code>' + code + '</code>';
-                                });
-                                
-                                contentDiv.innerHTML = messageText;
-                                messageDiv.appendChild(contentDiv);
-                            }
-                            
-                            messagesDiv.appendChild(messageDiv);
-                        }
-                    });
-                    
-                    conversationDiv.appendChild(messagesDiv);
-                    conversationsContainer.appendChild(conversationDiv);
+                    headerDiv.className = 'message-header';
+
+                    const iconSpan = document.createElement('span');
+                    iconSpan.className = role === 'user' ? 'user-icon' : 'ai-icon';
+                    iconSpan.textContent = role === 'user' ? 'U' : 'A';
+
+                    const nameSpan = document.createElement('span');
+                    nameSpan.textContent = role === 'user' ? 'Usuario' : 'Asistente';
+
+                    headerDiv.appendChild(iconSpan);
+                    headerDiv.appendChild(nameSpan);
+
+                    const contentDiv = document.createElement('div');
+                    contentDiv.className = 'message-content';
+
+                    // Convertir markdown y limpiar HTML
+                    if (message.content && message.content.parts) {
+                        const contentText = message.content.parts.join('\n');
+                        const renderedMarkdown = marked.parse(contentText);
+                        contentDiv.innerHTML = DOMPurify.sanitize(renderedMarkdown);
+                    }
+
+                    messageDiv.appendChild(headerDiv);
+                    messageDiv.appendChild(contentDiv);
+                    chatMessages.appendChild(messageDiv);
                 });
+
+                chatContainer.style.display = 'block';
             }
-            
-            // Función para obtener los nodos en orden
-            function getOrderedNodes(conversation) {
+
+            // Map ordered messages in a tree structure:
+            function getOrderedMessages(conversation) {
+                const orderedMessages = [];
                 const mapping = conversation.mapping;
-                const rootId = findRootId(mapping);
                 
-                if (!rootId) return [];
-                
-                // Encontrar el primer nodo real (no el nodo raíz)
-                let firstNodeId = null;
-                const rootNode = mapping[rootId];
-                if (rootNode && rootNode.children && rootNode.children.length > 0) {
-                    firstNodeId = rootNode.children[0];
-                }
-                
-                if (!firstNodeId) return [];
-                
-                // Recorrer los nodos en orden
-                const orderedNodes = [];
-                let currentNodeId = firstNodeId;
-                
-                while (currentNodeId) {
-                    const currentNode = mapping[currentNodeId];
-                    
-                    // Solo agregar nodos con mensajes (excluir nodos del sistema ocultos)
-                    if (currentNode && currentNode.message && 
-                        (!currentNode.message.metadata || 
-                         !currentNode.message.metadata.is_visually_hidden_from_conversation)) {
-                        orderedNodes.push(currentNode);
-                    }
-                    
-                    // Pasar al siguiente nodo
-                    if (currentNode && currentNode.children && currentNode.children.length > 0) {
-                        currentNodeId = currentNode.children[0];
-                    } else {
-                        currentNodeId = null;
+                if (!mapping) return orderedMessages;
+
+                // Find root node:
+                let rootNodeId = null;
+                for (const id in mapping) {
+                    if (mapping[id].parent === null) {
+                        rootNodeId = id;
+                        break;
                     }
                 }
-                
-                return orderedNodes;
-            }
-            
-            // Función para encontrar el ID del nodo raíz
-            function findRootId(mapping) {
-                for (const nodeId in mapping) {
+
+                if (!rootNodeId) return orderedMessages;
+
+                // Parse conversation tree:
+                function traverseTree(nodeId) {
                     const node = mapping[nodeId];
-                    if (node && node.parent === null) {
-                        return nodeId;
+                    if (!node) return;
+                    
+                    if (node.message) {
+                        orderedMessages.push(node.message);
+                    }
+                    
+                    if (node.children && node.children.length > 0) {
+                        node.children.forEach(childId => {
+                            traverseTree(childId);
+                        });
                     }
                 }
-                return null;
+
+                // Traverse tree from the root node:
+                traverseTree(rootNodeId);
+                
+                return orderedMessages;
             }
         });
     </script>
